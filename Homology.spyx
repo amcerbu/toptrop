@@ -1,0 +1,261 @@
+# Encodes data of Delta_{0,w} as a simplicial complex; computes homology groups
+from sage.homology.simplicial_complex import SimplicialComplex
+from sage.graphs.trees import TreeIterator
+from sage.graphs.graph import Graph
+import itertools
+import time
+
+def BuildDelta(w):
+    timepoint0 = time.time()
+    N = len(w)
+    W = sum(w)
+
+    UnmarkedTrees = []
+    for n in range(1,N-2):
+        for T in TreeIterator(n+1):
+            UnmarkedTrees.append(T)
+
+    MarkedTrees = []
+    l = 1
+    for t in UnmarkedTrees:
+        MarkedTrees.append([])
+        TreeDict = {}
+        TempTrees = []
+        G = t.automorphism_group()
+
+        timea = time.time()
+        print '\rGenerating tree {0} (of {1}): 0.'.format(l,len(UnmarkedTrees)),
+        i = 0
+        for a in itertools.product(range(len(t.vertices())), repeat = N):
+            if IsStable(t,a,w):
+                TreeDict[a] = i
+                TempTrees.append(a)
+                i += 1
+                print '\rGenerating tree {0} (of {1}): {2}.'.format(l,len(UnmarkedTrees),i),
+        timeb = time.time()
+        print '({0} seconds)'.format(round(timeb-timea,3))
+
+        Bools = [True] * len(TreeDict)
+
+        print '\r  Cleaning tree {0} (of {1}): 0.'.format(l,len(UnmarkedTrees)),
+        i = 0
+        for a in TreeDict:
+            if Bools[TreeDict[a]]:
+                for g in G:
+                    if g != G.identity():
+                        Bools[TreeDict[tuple(g(i) for i in a)]] = False
+            i += 1
+            print '\r  Cleaning tree {0} (of {1}): {2}.'.format(l,len(UnmarkedTrees), i),
+        timec = time.time()
+        print '({0} seconds)'.format(round(timec-timeb,3))
+
+        for b in range(len(Bools)):
+            if Bools[b]: MarkedTrees[-1].append(TempTrees[b])
+
+        l += 1
+
+    timepoint1 = time.time()
+    print repr(round(timepoint1 - timepoint0,3)) + " seconds to find all w-stable trees."
+
+    Vertices = MarkedTrees[0]
+    VertexDict = {}
+    for i in range(len(Vertices)):
+        if Vertices[i][0] == 1: Vertices[i] = tuple(1-x for x in Vertices[i])
+        VertexDict[Vertices[i]] = i
+
+    Facets = []
+
+    for i in range(len(MarkedTrees)):
+        TreeFam = MarkedTrees[i]
+        T = UnmarkedTrees[i]
+        for j in range(len(TreeFam)):
+            MT = TreeFam[j]
+            Facets.append([])
+            for E in T.edges():
+                a = CollapseToEdge(MT,T,E[0],E[1])
+                if a[0] == 1: a = tuple(1-x for x in a)
+                Facets[-1].append(VertexDict[a])
+
+    timepoint2 = time.time()
+    print repr(round(timepoint2 - timepoint1,3)) + " seconds to compute all cells of the complex."
+
+    D = SimplicialComplex(Facets)
+    timepoint3 = time.time()
+    print repr(round(timepoint3 - timepoint2, 3)) + " seconds to construct SimplicialComplex object."
+
+    return D
+
+def BuildDeltaP(w,pl):
+    timepoint0 = time.time()
+    N = len(w)
+    W = sum(w)
+
+    UnmarkedTrees = []
+    T = Graph([(0,1)])
+    for n in range(1,pl+1):
+        UnmarkedTrees.append(T)
+        T = T.copy()
+        T.add_edge((n,n+1))
+
+    MarkedTrees = []
+    l = 1
+    for t in UnmarkedTrees:
+        MarkedTrees.append([])
+        TreeDict = {}
+        TempTrees = []
+        G = t.automorphism_group()
+
+        timea = time.time()
+        print '\rGenerating tree {0} (of {1}): 0.'.format(l,len(UnmarkedTrees)),
+        i = 0
+        for a in itertools.product(range(len(t.vertices())), repeat = N):
+            if IsStable(t,a,w):
+                TreeDict[a] = i
+                TempTrees.append(a)
+                i += 1
+                print '\rGenerating tree {0} (of {1}): {2}.'.format(l,len(UnmarkedTrees),i),
+        timeb = time.time()
+        print '({0} seconds)'.format(round(timeb-timea,3))
+
+        Bools = [True] * len(TreeDict)
+
+        print '\r  Cleaning tree {0} (of {1}): 0.'.format(l,len(UnmarkedTrees)),
+        i = 0
+        for a in TreeDict:
+            if Bools[TreeDict[a]]:
+                for g in G:
+                    if g != G.identity():
+                        Bools[TreeDict[tuple(g(i) for i in a)]] = False
+            i += 1
+            print '\r  Cleaning tree {0} (of {1}): {2}.'.format(l,len(UnmarkedTrees), i),
+        timec = time.time()
+        print '({0} seconds)'.format(round(timec-timeb,3))
+
+        for b in range(len(Bools)):
+            if Bools[b]: MarkedTrees[-1].append(TempTrees[b])
+
+        l += 1
+
+    timepoint1 = time.time()
+    print repr(round(timepoint1 - timepoint0,3)) + " seconds to find all w-stable trees."
+
+    Vertices = MarkedTrees[0]
+    VertexDict = {}
+    for i in range(len(Vertices)):
+        if Vertices[i][0] == 1: Vertices[i] = tuple(1-x for x in Vertices[i])
+        VertexDict[Vertices[i]] = i
+
+    Facets = []
+
+    for i in range(len(MarkedTrees)):
+        TreeFam = MarkedTrees[i]
+        T = UnmarkedTrees[i]
+        for j in range(len(TreeFam)):
+            MT = TreeFam[j]
+            Facets.append([])
+            for E in T.edges():
+                a = CollapseToEdge(MT,T,E[0],E[1])
+                if a[0] == 1: a = tuple(1-x for x in a)
+                Facets[-1].append(VertexDict[a])
+
+    timepoint2 = time.time()
+    print repr(round(timepoint2 - timepoint1,3)) + " seconds to compute all cells of the complex."
+
+    D = SimplicialComplex(Facets)
+    timepoint3 = time.time()
+    print repr(round(timepoint3 - timepoint2, 3)) + " seconds to construct SimplicialComplex object."
+
+    return D
+
+
+def BuildDeltaO(w, Oracle):
+    N = len(w)
+    MarkedFullWeight = Oracle[N-4]
+    timepoint0 = time.time()
+
+    UnmarkedTrees = []
+    for n in range(1,N-2):
+        for T in TreeIterator(n+1):
+            UnmarkedTrees.append(T)
+
+    MarkedTrees = []
+    for j in range(len(UnmarkedTrees)):
+        t = UnmarkedTrees[j]
+        MarkedTrees.append([])
+        TreeDict = {}
+        TempTrees = []
+        G = t.automorphism_group()
+
+        i = 0
+        for a in MarkedFullWeight[j]:
+            if IsStable(t,a,w):
+                TreeDict[a] = i
+                TempTrees.append(a)
+                i += 1
+
+        Bools = [True] * len(TreeDict)
+
+        for b in range(len(Bools)):
+            if Bools[b]: MarkedTrees[-1].append(TempTrees[b])
+
+    timepoint1 = time.time()
+    print repr(round(timepoint1 - timepoint0,3)) + " seconds to find all w-stable trees."
+
+    Vertices = MarkedTrees[0]
+    VertexDict = {}
+    for i in range(len(Vertices)):
+        if Vertices[i][0] == 1: Vertices[i] = tuple(1-x for x in Vertices[i])
+        VertexDict[Vertices[i]] = i
+
+    Facets = []
+
+    for i in range(len(MarkedTrees)):
+        TreeFam = MarkedTrees[i]
+        T = UnmarkedTrees[i]
+        for j in range(len(TreeFam)):
+            MT = TreeFam[j]
+            Facets.append([])
+            for E in T.edges():
+                a = CollapseToEdge(MT,T,E[0],E[1])
+                if a[0] == 1: a = tuple(1-x for x in a)
+                Facets[-1].append(VertexDict[a])
+
+    timepoint2 = time.time()
+    print repr(round(timepoint2 - timepoint1,3)) + " seconds to compute all cells of the complex."
+
+    D = SimplicialComplex(Facets)
+    timepoint3 = time.time()
+    print repr(round(timepoint3 - timepoint2, 3)) + " seconds to construct SimplicialComplex object."
+
+    return D
+
+
+def IsStable(t,a,w):
+    for v in t.vertices():
+        weight = 0
+        for i in range(len(w)):
+            if a[i] == v: weight += w[i]
+        if t.degree(v) + weight <= 2:
+            return False
+    return True
+
+
+def CollapseToEdge(MT,T,v,w):
+    a = [v]
+    t = T.copy()
+    GatherVertices(t,a,v,w)
+
+    newMarking = []
+    for i in range(len(MT)):
+        if MT[i] in a:
+            newMarking.append(1)
+        else:
+            newMarking.append(0)
+    return tuple(newMarking)
+
+def GatherVertices(t,a,v,w):
+    for x in t.neighbor_iterator(v):
+        if x != w:
+            a.append(x)
+            GatherVertices(t,a,x,v)
+    return
